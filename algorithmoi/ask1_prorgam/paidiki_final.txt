@@ -1,0 +1,56 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+int main(){
+	int i, j, y, z, N, K, pre, B[700][700];
+	long int counter=0; 
+	char A[700][700];
+	scanf("%d %d",&N,&K);
+	//scanf("%d", &K);
+		
+	for (i=0; i<=N-1; i++){
+		pre=0;
+		for(j=0; j<=N-1; j++){
+			scanf(" %c", &A[i][j]);
+			if(A[i][j]=='1'){
+				pre++;
+				B[i][j]=pre;
+			}
+			else{
+				B[i][j]=pre;
+			}
+		}
+	}
+
+	/*for(i=0; i<N; i++){
+		for(j=0; j<N; j++){
+			printf("%d", B[i][j]);
+		}
+		printf("\n");
+	}*/
+
+	for (i=0; i<N; i++){
+		for (j=0; j<N; j++){
+			for (y=j; y<N; y++){
+				pre=0;
+				for (z=i; z<N; z++){
+					if (j!= 0){
+                    	pre = pre + B[z][y] - B[z][j-1];
+                	}
+                	else {
+                    	pre = pre + B[z][y];
+                	}
+                	if (pre == K){
+                	    counter++;
+                	}
+                	else if (pre>K){
+                		break;
+                	}
+            	}
+			}
+		}
+	}
+
+	printf("%li\n", counter);
+	return 0;
+}
