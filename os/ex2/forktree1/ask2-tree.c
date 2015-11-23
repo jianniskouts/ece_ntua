@@ -22,7 +22,7 @@ void fork_procs(struct tree_node *node );
 static void do_fork(struct tree_node *root){
 	pid_t pid;
 	pid = fork();
-	int status;
+	//int status;
 	if(pid < 0){
 		perror("fork");
 		exit(1);
@@ -31,8 +31,11 @@ static void do_fork(struct tree_node *root){
 		fork_procs(root->children);
 		
 	}
-	pid = wait(&status);
-	explain_wait_status(pid,status);
+	//sleep(3);
+		//pid = wait(&status);
+	//explain_wait_status(pid,status);
+	//exit(12);
+
 }	
 void fork_procs(struct tree_node *node )
 {
@@ -40,14 +43,22 @@ void fork_procs(struct tree_node *node )
 	 * initial process is A.
 	 */
 	int status;
-	pid_t pid[100];
+	pid_t pid;
 	int i = 0;
-	change_pname(node->name);
+	//change_pname(node->name);
 	printf("%s: Sleeping...\n",node->name);
   	if(node->nr_children > 0){
 		for(i = 0; i<node->nr_children; i++){
-			do_fork(node+i);
+			do_fork(node->children+i);
 		}
+		//exit(12);
+		sleep(8*node->nr_children);
+		for(i=0;i<node->nr_children;i++){
+			pid = wait(&status);
+			explain_wait_status(pid,status);
+			//exit(12);		
+		}
+		exit(12);
 	}
 	else if(&node->nr_children < 0){
 		perror("wrong ipnut");
@@ -55,7 +66,7 @@ void fork_procs(struct tree_node *node )
 	
 	}
 	else{
-		sleep(SLEEP_PROC_SEC);
+		sleep(10);
 		exit(13);
 	}
 }
@@ -83,6 +94,7 @@ int main(int argc, char *argv[])
 	int status;
 	root = get_tree_from_file(argv[1]);
 	/* Fork root of process tree */
+	printf("%s\n",root->name);
 	pid = fork();
 	if (pid < 0) {
 		perror("main: fork");
