@@ -28,7 +28,8 @@ static void do_fork(struct tree_node *root){
 		exit(1);
 	}
 	if(pid == 0){
-		fork_procs(root->children);
+		//sleep(3);
+		fork_procs(root);
 		
 	}
 	//sleep(3);
@@ -39,20 +40,19 @@ static void do_fork(struct tree_node *root){
 }	
 void fork_procs(struct tree_node *node )
 {
-	/*
-	 * initial process is A.
-	 */
+
 	int status;
 	pid_t pid;
 	int i = 0;
-	//change_pname(node->name);
+	change_pname(node->name);
 	printf("%s: Sleeping...\n",node->name);
   	if(node->nr_children > 0){
 		for(i = 0; i<node->nr_children; i++){
 			do_fork(node->children+i);
+			//sleep(3);
 		}
 		//exit(12);
-		sleep(8*node->nr_children);
+		sleep(5*node->nr_children);
 		for(i=0;i<node->nr_children;i++){
 			pid = wait(&status);
 			explain_wait_status(pid,status);
@@ -94,7 +94,6 @@ int main(int argc, char *argv[])
 	int status;
 	root = get_tree_from_file(argv[1]);
 	/* Fork root of process tree */
-	printf("%s\n",root->name);
 	pid = fork();
 	if (pid < 0) {
 		perror("main: fork");
