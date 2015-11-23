@@ -2,37 +2,69 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
-#include <signal.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#include "tree.h"
 #include "proc-common.h"
 
-void fork_procs(struct tree_node *root)
+#include "tree.h"
+
+#define SLEEP_TREE_SEC 3
+
+
+pid_t pid[100];
+void fork_procs(struct tree_node *node );
+
+pid_t do_fork(struct tree_node *root){
+	int n = 0;
+	pid[n] = fork();
+	n++;
+	if(pid[n] < 0){
+		perror("fork");
+		exit(1);
+	}
+	if(pid[n] == 0){
+		fork_procs(root);
+		
+	}
+	return pid[0];
+
+}	
+void fork_procs(struct tree_node *node )
 {
-	/*
-	 * Start
-	 */
-	printf("PID = %ld, name %s, starting...\n",
-			(long)getpid(), root->name);
-	change_pname(root->name);
 
-	/* ... */
-
-	/*
-	 * Suspend Self
-	 */
-	raise(SIGSTOP);
-	printf("PID = %ld, name = %s is awake\n",
-		(long)getpid(), root->name);
-
-	/* ... */
-
-	/*
-	 * Exit
-	 */
-	exit(0);
+	int status;
+	pid_t pid_A[100];
+	int i = 0;
+	change_pname(node->name);
+	printf("%s: Sleeping...\n",node->name);
+  	if(node->nr_children > 0){
+		for(i = 0; i<node->nr_children; i++){
+			pid_A[i] = do_fork(node->children+i);
+		}
+		wait_for_ready_children(node->nr_children);
+		raise(SIGSTOP);
+		printf("PID = %ld, name = %s is awake\n",
+                (long)getpid(), node->name);
+		for(i = 0; i<node->nr_children; i++){
+			kill(pid_A[i],SIGCONT);
+		}
+		for(i = 0; i<node->nr_children;i++){
+			wait(&status);
+		}
+		exit(12);
+	}
+	else if(&node->nr_children < 0){
+		perror("wrong ipnut");
+		exit(1);
+	
+	}
+	else{
+		raise(SIGSTOP);
+		printf("PID = %ld, name = %s is awake\n",
+                (long)getpid(), node->name);
+		exit(13);
+	}
 }
 
 /*
@@ -47,28 +79,23 @@ void fork_procs(struct tree_node *root)
  *      use wait_for_ready_children() to wait until
  *      the first process raises SIGSTOP.
  */
-
 int main(int argc, char *argv[])
 {
-	pid_t pid;
-	int status;
-	struct tree_node *root;
-
-	if (argc < 2){
-		fprintf(stderr, "Usage: %s <tree_file>\n", argv[0]);
+	if(argc != 2){
+		fprintf(stderr, "Usage %s <input_tree_file>\n\n",argv[0]);
 		exit(1);
 	}
-
-	/* Read tree into memory */
+	pid_t pid_root;
+	struct tree_node *root;
+	int status;
 	root = get_tree_from_file(argv[1]);
-
 	/* Fork root of process tree */
-	pid = fork();
-	if (pid < 0) {
+	pid_root = fork();
+	if (pid_root < 0) {
 		perror("main: fork");
 		exit(1);
 	}
-	if (pid == 0) {
+	if (pid_root == 0) {
 		/* Child */
 		fork_procs(root);
 		exit(1);
@@ -78,20 +105,20 @@ int main(int argc, char *argv[])
 	 * Father
 	 */
 	/* for ask2-signals */
-	wait_for_ready_children(1);
+	wait_for_ready_children(1); 
 
 	/* for ask2-{fork, tree} */
-	/* sleep(SLEEP_TREE_SEC); */
+	//sleep(SLEEP_TREE_SEC);
 
 	/* Print the process tree root at pid */
-	show_pstree(pid);
+	show_pstree(pid_root);
 
 	/* for ask2-signals */
 	kill(pid, SIGCONT);
 
 	/* Wait for the root of the process tree to terminate */
-	wait(&status);
-	explain_wait_status(pid, status);
+	pid_root = wait(&status);
+	explain_wait_status(pid_root, status);
 
 	return 0;
 }
