@@ -12,45 +12,49 @@
 #define SLEEP_TREE_SEC 3
 
 
-pid_t pid[100];
 void fork_procs(struct tree_node *node );
 
 pid_t do_fork(struct tree_node *root){
-	int n = 0;
-	pid[n] = fork();
-	n++;
-	if(pid[n] < 0){
+	//int n = 0;
+	pid_t p;
+	printf("%s\n",root->name );
+	p = fork();
+	if(p < 0){
 		perror("fork");
 		exit(1);
 	}
-	if(pid[n] == 0){
+	if(p == 0){
 		fork_procs(root);
 		
 	}
-	return pid[0];
+	return p;
 
 }	
 void fork_procs(struct tree_node *node )
 {
 
 	int status;
-	pid_t pid_A[100];
-	int i = 0;
+	pid_t pid[100],pid_temp;
+	int i;
 	change_pname(node->name);
-	printf("%s: Sleeping...\n",node->name);
+	printf("PID = %ld, name %s, starting...\n",
+                        (long)getpid(), node->name);
   	if(node->nr_children > 0){
 		for(i = 0; i<node->nr_children; i++){
-			pid_A[i] = do_fork(node->children+i);
+			pid[i] = do_fork(node->children+i);
 		}
+		printf("arazw kai perimenw\n");
 		wait_for_ready_children(node->nr_children);
+		
 		raise(SIGSTOP);
 		printf("PID = %ld, name = %s is awake\n",
                 (long)getpid(), node->name);
 		for(i = 0; i<node->nr_children; i++){
-			kill(pid_A[i],SIGCONT);
+			kill(pid[i],SIGCONT);
 		}
 		for(i = 0; i<node->nr_children;i++){
-			wait(&status);
+			pid_temp = wait(&status);
+			explain_wait_status(pid_temp,status);
 		}
 		exit(12);
 	}
@@ -107,14 +111,11 @@ int main(int argc, char *argv[])
 	/* for ask2-signals */
 	wait_for_ready_children(1); 
 
-	/* for ask2-{fork, tree} */
-	//sleep(SLEEP_TREE_SEC);
-
 	/* Print the process tree root at pid */
 	show_pstree(pid_root);
 
 	/* for ask2-signals */
-	kill(pid, SIGCONT);
+	kill(pid_root, SIGCONT);
 
 	/* Wait for the root of the process tree to terminate */
 	pid_root = wait(&status);
