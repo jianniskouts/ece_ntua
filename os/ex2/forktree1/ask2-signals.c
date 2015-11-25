@@ -43,7 +43,6 @@ void fork_procs(struct tree_node *node )
 		for(i = 0; i<node->nr_children; i++){
 			pid[i] = do_fork(node->children+i);
 		}
-		printf("arazw kai perimenw\n");
 		wait_for_ready_children(node->nr_children);
 		
 		raise(SIGSTOP);

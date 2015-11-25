@@ -7,16 +7,13 @@
 #include <sys/wait.h>
 
 #include "proc-common.h"
-
 #include "tree.h"
 
 #define SLEEP_TREE_SEC 3
 
-void fork_procs(struct tree_node *node, int pfdw[] );
+void fork_procs(struct tree_node *node, int pfdw[]);
 
 pid_t do_fork(struct tree_node *root, int pfd[]){
-	//struct marialena *ret;
-	//int pfd[2];
 	pid_t p;
 	p = fork();
 	if(p < 0){
@@ -29,40 +26,39 @@ pid_t do_fork(struct tree_node *root, int pfd[]){
 	return p;
 
 }	
-void fork_procs(struct tree_node *node, int pfdw[] ){
+void fork_procs(struct tree_node *node, int pfdw[]){
 	int status;
 	pid_t pid[100],pid_temp;
 	int pfd[2];
 	int temp;
-	int temp1;
 	int i;
 	int val[2];
 	change_pname(node->name);
 	printf("PID = %ld, name %s, starting...\n",
                         (long)getpid(), node->name);
   	if(node->nr_children > 0){
-		for(i = 0; i<node->nr_children; i++){
-			if (pipe(pfd) < 0) {
+  		if (pipe(pfd) < 0) {
 				perror("pipe");
 				exit(1);
 			}
-			printf("Parent: Creating pipe...\n");
+		printf("Parent: Creating pipe...\n");
+		for(i = 0; i < 2; i++){
 			pid[i] = do_fork(node->children+i,pfd);
-			val[i] = pfd[0];
-			val[i] = temp1;
 		}
-		if (read(pfd[0], &temp1, sizeof(val)) != sizeof(val)) {
+
+		for (i = 0; i < 2; ++i){
+			if (read(pfd[0], &val[i], sizeof(val[i])) != sizeof(val[i])) {
 				perror("read from pipe");
 				exit(1);
-		}
+			}
+			printf("%d\n",val[i]);
+		}	
+		
 		wait_for_ready_children(node->nr_children);
-		/*for (int i = 0; i < 2; ++i){
-			read(pfd[0],val[i],sizeof(val));// add checkpoint for read
-		}*/
-		if (strcmp(node->name,"+")){
+		if (strcmp(node->name,"+") == 0){
 			temp = val[0] + val[1];
 		}
-		else if(strcmp(node->name,"*")){
+		else if(strcmp(node->name,"*") == 0){
 			temp = val[0] * val[1];
 		}
 
@@ -74,7 +70,7 @@ void fork_procs(struct tree_node *node, int pfdw[] ){
 		raise(SIGSTOP);
 		printf("PID = %ld, name = %s is awake\n",
                 (long)getpid(), node->name);
-		for(i = 0; i<node->nr_children; i++){
+		for(i = 0; i < 2; i++){
 			kill(pid[i],SIGCONT);
 		}
 		for(i = 0; i<node->nr_children;i++){
@@ -122,13 +118,13 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 	int result;
-	int pfd[2];
+	int pfd_init[2];
 	pid_t pid_root;
 	struct tree_node *root;
 	int status;
 	root = get_tree_from_file(argv[1]);
 	printf("Parent: Creating pipe...\n");
-	if (pipe(pfd) < 0) {
+	if (pipe(pfd_init) < 0) {
 		perror("pipe");
 		exit(1);
 	}
@@ -140,7 +136,7 @@ int main(int argc, char *argv[])
 	}
 	if (pid_root == 0) {
 		/* Child */
-		fork_procs(root,pfd);
+		fork_procs(root,pfd_init);
 		exit(1);
 	}
 
@@ -149,7 +145,7 @@ int main(int argc, char *argv[])
 	 */
 	/* for ask2-signals */
 	wait_for_ready_children(1); 
-	if (read(pfd[0], &result, sizeof(result)) != sizeof(result)) {
+	if (read(pfd_init[0], &result, sizeof(result)) != sizeof(result)) {
 		perror("read from pipe");
 		exit(1);
 	}
@@ -159,7 +155,7 @@ int main(int argc, char *argv[])
 
 	printf("%d\n",result );
 	/* for ask2-signals */
-	//kill(pid_root, SIGCONT);
+	kill(pid_root, SIGCONT);
 
 	/* Wait for the root of the process tree to terminate */
 	pid_root = wait(&status);
