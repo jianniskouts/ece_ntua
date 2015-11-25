@@ -38,7 +38,7 @@ void fork_procs(void)
 			perror("fork_D");
 			exit(1);
 		}
-		if(pid_D == 0){
+		wif(pid_D == 0){
 			change_pname("D");
 			printf("D: Sleeping...\n");
 			sleep(SLEEP_PROC_SEC+2);
