@@ -51,7 +51,6 @@ void fork_procs(struct tree_node *node, int pfdw[]){
 				perror("read from pipe");
 				exit(1);
 			}
-			printf("%d\n",val[i]);
 		}	
 		
 		wait_for_ready_children(node->nr_children);

@@ -15,9 +15,7 @@
 void fork_procs(struct tree_node *node );
 
 pid_t do_fork(struct tree_node *root){
-	//int n = 0;
 	pid_t p;
-	printf("%s\n",root->name );
 	p = fork();
 	if(p < 0){
 		perror("fork");
@@ -48,6 +46,7 @@ void fork_procs(struct tree_node *node )
 		raise(SIGSTOP);
 		printf("PID = %ld, name = %s is awake\n",
                 (long)getpid(), node->name);
+		
 		for(i = 0; i<node->nr_children; i++){
 			kill(pid[i],SIGCONT);
 		}

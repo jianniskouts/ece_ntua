@@ -22,7 +22,6 @@ void fork_procs(struct tree_node *node );
 static void do_fork(struct tree_node *root){
 	pid_t pid;
 	pid = fork();
-	//int status;
 	if(pid < 0){
 		perror("fork");
 		exit(1);
