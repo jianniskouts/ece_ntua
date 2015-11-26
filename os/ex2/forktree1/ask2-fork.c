@@ -22,7 +22,9 @@ void fork_procs(void)
 	 */
 	int status;
 	change_pname("A");
-	printf("A: Sleeping...\n");
+	/*
+	 * first child of A is B.
+	 */
   	pid_t pid_B;
 	pid_B = fork();
 	if(pid_B < 0){
@@ -32,26 +34,29 @@ void fork_procs(void)
 	if(pid_B == 0){
 		pid_t pid_D;
 		change_pname("B");
-		printf("B: Sleeping...\n");
+		//fork of D, child of B
 		pid_D = fork();	
 		if(pid_D < 0){
 			perror("fork_D");
 			exit(1);
 		}
-		wif(pid_D == 0){
+		if(pid_D == 0){
 			change_pname("D");
 			printf("D: Sleeping...\n");
 			sleep(SLEEP_PROC_SEC+2);
 			printf("D: Exiting...\n");
 			exit(13);
 		}
+		printf("B: Sleeping...\n");
 		sleep(SLEEP_PROC_SEC);
 		pid_D = wait(&status);
 		explain_wait_status(pid_D,status);
 		printf("B: Exiting...\n");
 		exit(19);
 	}
-	
+	/*
+	 * second child of A is C.
+	 */
 	pid_t pid_C;
 	pid_C = fork();
 	if(pid_C < 0){
@@ -59,17 +64,14 @@ void fork_procs(void)
 		exit(1);
 	}
 	if(pid_C == 0){
-		//pid_t pid_B;
 		change_pname("C");
 		printf("C: Sleeping...\n");
 		sleep(SLEEP_PROC_SEC);
-		//pid_C = wait(&status);
-		//explain_wait_status(pid_C,status);
 		printf("C: Exiting...\n");
 		exit(17);
 	}
+	printf("A: Sleeping...\n");
 	sleep(SLEEP_TREE_SEC + 1);
-	//show_pstree(pid_A);
 	pid_B = wait(&status);
 	explain_wait_status(pid_B,status);
 	pid_B = wait(&status);
@@ -84,12 +86,7 @@ void fork_procs(void)
  * waits for the process tree to be completely created,
  * then takes a photo of it using show_pstree().
  *
- * How to wait for the process tree to be ready?
- * In ask2-{fork, tree}:
- *      wait for a few seconds, hope for the best.
- * In ask2-signals:
- *      use wait_for_ready_children() to wait until
- *      the first process raises SIGSTOP.
+ * We wait for a few seconds for the process tree to be ready, hope for the best.
  */
 int main(void)
 {
@@ -111,17 +108,10 @@ int main(void)
 	/*
 	 * Father
 	 */
-	/* for ask2-signals */
-	/* wait_for_ready_children(1); */
-
-	/* for ask2-{fork, tree} */
 	sleep(SLEEP_TREE_SEC);
 
 	/* Print the process tree root at pid */
 	show_pstree(pid);
-
-	/* for ask2-signals */
-	/* kill(pid, SIGCONT); */
 
 	/* Wait for the root of the process tree to terminate */
 	pid = wait(&status);
