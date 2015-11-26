@@ -34,8 +34,7 @@ void fork_procs(struct tree_node *node, int pfdw[]){
 	int i;
 	int val[2];
 	change_pname(node->name);
-	printf("PID = %ld, name %s, starting...\n",
-                        (long)getpid(), node->name);
+	printf("PID = %ld, name %s, starting...\n", (long)getpid(), node->name);
   	if(node->nr_children > 0){
   		if (pipe(pfd) < 0) {
 			perror("pipe");
@@ -82,7 +81,6 @@ void fork_procs(struct tree_node *node, int pfdw[]){
 	
 	}
 	else{
-		//temp = node->name - '0';
 		temp = atoi(node->name);
 		raise(SIGSTOP);
 		if (write(pfdw[1], &temp, sizeof(temp)) != sizeof(temp)) {
@@ -108,9 +106,7 @@ void fork_procs(struct tree_node *node, int pfdw[]){
  *      use wait_for_ready_children() to wait until
  *      the first process raises SIGSTOP.
  */
-int main(int argc, char *argv[])
-{
-
+int main(int argc, char *argv[]){
 	if(argc != 2){
 		fprintf(stderr, "Usage %s <input_tree_file>\n\n",argv[0]);
 		exit(1);
@@ -137,17 +133,14 @@ int main(int argc, char *argv[])
 		fork_procs(root,pfd_init);
 		exit(1);
 	}
-
 	/*
 	 * Father
 	 */
-	/* for ask2-signals */
 	wait_for_ready_children(1); 
 	/* Print the process tree root at pid */
 	show_pstree(pid_root);
-
-	/* for ask2-signals */
 	kill(pid_root, SIGCONT);
+	/* Wait for the root of the process tree to terminate */
 	pid_root = wait(&status);
 
 	if (read(pfd_init[0], &result, sizeof(result)) != sizeof(result)) {
@@ -155,9 +148,9 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-
-	/* Wait for the root of the process tree to terminate */
 	explain_wait_status(pid_root, status);
+
+	/*Print the result of the file*/
 	printf("%d\n",result );
 
 	return 0;

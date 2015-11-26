@@ -28,15 +28,13 @@ pid_t do_fork(struct tree_node *root){
 	return p;
 
 }	
-void fork_procs(struct tree_node *node )
-{
+void fork_procs(struct tree_node *node ){
 
 	int status;
 	pid_t pid[100],pid_temp;
 	int i;
 	change_pname(node->name);
-	printf("PID = %ld, name %s, starting...\n",
-                        (long)getpid(), node->name);
+	printf("PID = %ld, name %s, starting...\n", (long)getpid(), node->name);
   	if(node->nr_children > 0){
 		for(i = 0; i<node->nr_children; i++){
 			pid[i] = do_fork(node->children+i);
@@ -44,8 +42,7 @@ void fork_procs(struct tree_node *node )
 		wait_for_ready_children(node->nr_children);
 		
 		raise(SIGSTOP);
-		printf("PID = %ld, name = %s is awake\n",
-                (long)getpid(), node->name);
+		printf("PID = %ld, name = %s is awake\n", (long)getpid(), node->name);
 		
 		for(i = 0; i<node->nr_children; i++){
 			kill(pid[i],SIGCONT);
@@ -74,15 +71,13 @@ void fork_procs(struct tree_node *node )
  * waits for the process tree to be completely created,
  * then takes a photo of it using show_pstree().
  *
- * How to wait for the process tree to be ready?
- * In ask2-{fork, tree}:
- *      wait for a few seconds, hope for the best.
- * In ask2-signals:
- *      use wait_for_ready_children() to wait until
- *      the first process raises SIGSTOP.
+ * 
+ * We wait for the process to be ready by 
+ * using wait_for_ready_children() to wait 
+ * until the first process raises SIGSTOP.
  */
-int main(int argc, char *argv[])
-{
+
+int main(int argc, char *argv[]){
 	if(argc != 2){
 		fprintf(stderr, "Usage %s <input_tree_file>\n\n",argv[0]);
 		exit(1);
@@ -106,7 +101,6 @@ int main(int argc, char *argv[])
 	/*
 	 * Father
 	 */
-	/* for ask2-signals */
 	wait_for_ready_children(1); 
 
 	/* Print the process tree root at pid */

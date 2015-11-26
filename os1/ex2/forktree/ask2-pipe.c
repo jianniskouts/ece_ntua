@@ -105,15 +105,10 @@ void fork_procs(struct tree_node *node, int pfdw[]){
  * waits for the process tree to be completely created,
  * then takes a photo of it using show_pstree().
  *
- * How to wait for the process tree to be ready?
- * In ask2-{fork, tree}:
- *      wait for a few seconds, hope for the best.
- * In ask2-signals:
- *      use wait_for_ready_children() to wait until
- *      the first process raises SIGSTOP.
+ * Then we get the values of the children through pipes
+ * and compute the appropriate results.
  */
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]){
 
 	if(argc != 2){
 		fprintf(stderr, "Usage %s <input_tree_file>\n\n",argv[0]);
