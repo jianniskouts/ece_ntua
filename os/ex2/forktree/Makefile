@@ -1,6 +1,6 @@
 .PHONY: all clean
 
-all: fork-example tree-example ask2-fork ask2-signals ask2-tree ask2-pipe ask2-pipev1
+all: fork-example tree-example ask2-fork ask2-signals ask2-tree ask2-pipe 
 
 CC = gcc
 CFLAGS = -g -Wall -O2
@@ -23,10 +23,6 @@ ask2-tree: ask2-tree.o proc-common.o tree.o
 
 ask2-pipe: ask2-pipe.o proc-common.o tree.o
 	$(CC) $(CFLAGS) $^ -o $@
-
-ask2-pipev1: ask2-pipev1.o proc-common.o tree.o
-	$(CC) $(CFLAGS) $^ -o $@
-
 
 %.s: %.c
 	$(CC) $(CFLAGS) -S -fverbose-asm $<

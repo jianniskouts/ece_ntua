@@ -9,8 +9,6 @@
 
 #include "tree.h"
 
-#define SLEEP_TREE_SEC 3
-
 
 void fork_procs(struct tree_node *node );
 
@@ -46,8 +44,6 @@ void fork_procs(struct tree_node *node ){
 		
 		for(i = 0; i<node->nr_children; i++){
 			kill(pid[i],SIGCONT);
-		}
-		for(i = 0; i<node->nr_children;i++){
 			pid_temp = wait(&status);
 			explain_wait_status(pid_temp,status);
 		}
@@ -60,8 +56,7 @@ void fork_procs(struct tree_node *node ){
 	}
 	else{
 		raise(SIGSTOP);
-		printf("PID = %ld, name = %s is awake\n",
-                (long)getpid(), node->name);
+		printf("PID = %ld, name = %s is awake\n", (long)getpid(), node->name);
 		exit(13);
 	}
 }
