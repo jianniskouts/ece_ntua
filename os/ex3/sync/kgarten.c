@@ -39,8 +39,8 @@ struct kgarten_struct {
          * Here you may define any mutexes / condition variables / other variables
          * you may need.
          */
-        pthread_cond_t teachers_enter;
-        pthread_cond_t teachers_exit;
+        pthread_cond_t cond_var;
+        //pthread_cond_t teachers_exit;
 
         /*
          * You may NOT modify or use anything in the structure below this
@@ -163,7 +163,7 @@ void child_enter(struct thread_info_struct *thr)
         /* If there are not enough teachers, eq ((N-C)*R< ((C+1))) then wait*/
         pthread_mutex_lock(&thr->kg->mutex);
         while(((thr->kg->vt) * (thr->kg->ratio)) < (((thr->kg->vc) + 1))){
-                pthread_cond_wait(&thr->kg->teachers_enter, &thr->kg->mutex);
+                pthread_cond_wait(&thr->kg->cond_var, &thr->kg->mutex);
         }
  
         ++(thr->kg->vc);
@@ -191,7 +191,7 @@ void child_exit(struct thread_info_struct *thr)
 
         /* if (((N-C-1)*R>=C) then teachers are able to exit */
         if((((thr->kg->vt)-1)*(thr->kg->ratio))>=(thr->kg->vc)){
-                pthread_cond_signal(&thr->kg->teachers_exit);
+                pthread_cond_signal(&thr->kg->cond_var);
         }
         pthread_mutex_unlock(&thr->kg->mutex);
 }
@@ -212,7 +212,7 @@ void teacher_enter(struct thread_info_struct *thr)
         ++(thr->kg->vt);
   
 
-        pthread_cond_broadcast(&thr->kg->teachers_enter);
+        pthread_cond_broadcast(&thr->kg->cond_var);
         pthread_mutex_unlock(&thr->kg->mutex);
 }
 
@@ -228,7 +228,7 @@ void teacher_exit(struct thread_info_struct *thr)
 
         pthread_mutex_lock(&thr->kg->mutex);
         while((((thr->kg->vt)-1)*(thr->kg->ratio))<(thr->kg->vc)){
-                pthread_cond_wait(&thr->kg->teachers_exit, &thr->kg->mutex);
+                pthread_cond_wait(&thr->kg->cond_var, &thr->kg->mutex);
         }
    
         --(thr->kg->vt);
@@ -317,7 +317,7 @@ void *thread_start_fn(void *arg)
 
 int main(int argc, char *argv[])
 {
-        int i, ret, ret1, ret2, thrcnt, chldcnt, ratio;
+        int i, ret, ret1, thrcnt, chldcnt, ratio;
         struct thread_info_struct *thr;
         struct kgarten_struct *kg;
 
@@ -354,16 +354,16 @@ int main(int argc, char *argv[])
                 perror_pthread(ret, "pthread_mutex_init");
                 exit(1);
         }
-        ret1 = pthread_cond_init(&kg->teachers_enter, NULL);
+        ret1 = pthread_cond_init(&kg->cond_var, NULL);
         if (ret1) {
                 perror_pthread(ret, "pthread_cond_init");
                 exit(1);
         }
-        ret2 = pthread_cond_init(&kg->teachers_exit, NULL);
-        if (ret2) {
-                perror_pthread(ret, "pthread_cond_init");
-                exit(1);
-       }
+        //ret2 = pthread_cond_init(&kg->teachers_exit, NULL);
+        //if (ret2) {
+         //       perror_pthread(ret, "pthread_cond_init");
+          //      exit(1);
+       //}
 
 
         /*
