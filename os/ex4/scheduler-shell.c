@@ -79,7 +79,7 @@ sched_create_task(char *executable){
 		proc = malloc(sizeof(struct process));
 		proc->pid = p;
 		proc->myid++;
-		proc->name = executable;
+		strcpy(proc->name,executable);
 		enqueue(proc,q);
 }
 
