@@ -11,35 +11,76 @@
 
 #include "proc-common.h"
 #include "request.h"
+#include "queue.h"
 
 /* Compile-time parameters. */
 #define SCHED_TQ_SEC 2                /* time quantum */
 #define TASK_NAME_SZ 60               /* maximum size for a task's name */
 #define SHELL_EXECUTABLE_NAME "shell" /* executable for shell */
 
+/*the process queue*/
+queue *q;
+
+/*The process struct*/
+struct process {
+
+	pid_t pid;
+	int myid;
+	char *name;
+
+};
+
 /* Print a list of all tasks currently being scheduled.  */
 static void
-sched_print_tasks(void)
-{
-	assert(0 && "Please fill me!");
+sched_print_tasks(void){
+	queue *temp;
+	temp = q;
+	while(temp != NULL){
+		printf("Tasks:\nid: %d | pid: %d,| name: %s\n",temp->head->p->myid,temp->head->p->pid,temp->head->p->name);
+		temp->head = temp->head->pre;
+	}
 }
 
 /* Send SIGKILL to a task determined by the value of its
  * scheduler-specific id.
  */
 static int
-sched_kill_task_by_id(int id)
-{
-	assert(0 && "Please fill me!");
+sched_kill_task_by_id(int id){
+	queue *temp;
+	temp = q;
+	while(temp !=NULL){
+		if (temp->head->p->myid == id){
+			kill(temp->head->p->pid,SIGKILL); //why not SIGTERM??
+			break;
+		}
+		temp->head = temp->head->pre;
+	}
 	return -ENOSYS;
 }
 
 
 /* Create a new task.  */
 static void
-sched_create_task(char *executable)
-{
-	assert(0 && "Please fill me!");
+sched_create_task(char *executable){
+	struct process *proc;
+	pid_t p = fork();
+		if (p < 0) {
+			perror("fork");
+			exit(1);
+		}
+
+		if (p == 0) {
+			char *newargv[] = { executable, NULL, NULL, NULL };
+        	char *newenviron[] = { NULL };
+			raise(SIGSTOP);
+			execve(executable,newargv,newenviron);
+			exit(1);
+		}
+		proc = malloc(sizeof(struct process));
+		proc->pid = p;
+		proc->myid++;
+		proc->name = executable;
+		enqueue(proc,q);
 }
 
 /* Process requests by the shell.  */
@@ -61,24 +102,6 @@ process_request(struct request_struct *rq)
 		default:
 			return -ENOSYS;
 	}
-}
-
-/* 
- * SIGALRM handler
- */
-static void
-sigalrm_handler(int signum)
-{
-	assert(0 && "Please fill me!");
-}
-
-/* 
- * SIGCHLD handler
- */
-static void
-sigchld_handler(int signum)
-{
-	assert(0 && "Please fill me!");
 }
 
 /* Disable delivery of SIGALRM and SIGCHLD. */
@@ -111,6 +134,88 @@ signals_enable(void)
 	}
 }
 
+
+/*
+ * SIGALRM handler
+ */
+static void
+sigalrm_handler(int signum){
+	struct process * proc;
+	proc = get_top(q);
+	kill(proc->pid,SIGSTOP);
+	
+	 if (alarm(SCHED_TQ_SEC) < 0) {
+                perror("alarm");
+                exit(1);
+        }
+}
+
+/* 
+ * SIGCHLD handler
+ */
+static void
+sigchld_handler(int signum){
+	if (signum != SIGCHLD) {
+                fprintf(stderr, "Internal error: Called for signum %d, not SIGCHLD\n",
+                        signum);
+                exit(1);
+        }
+	
+	struct process *p;
+	pid_t pid;
+	int status;
+	for (;;) {
+                pid = waitpid(-1, &status, WUNTRACED | WNOHANG);
+                if (pid < 0) {
+                        perror("waitpid");
+                        exit(1);
+                }
+                if (pid == 0)
+                        break;
+
+                explain_wait_status(pid, status);
+
+                if (WIFEXITED(status) || WIFSIGNALED(status)) {
+                        /* A child has died */
+                        printf("Parent: Received SIGCHLD, child  %s is dead.\n", name_by_pid(pid,q));
+			p = get_top(q);
+		
+			dequeue(q);
+			p = get_top(q);
+
+			if (p == NULL ) {
+				printf("No more process\n");
+				exit(1);
+				}
+
+			printf("starting process %s\n",p->name);
+			kill(p->pid,SIGCONT);
+				if (alarm(SCHED_TQ_SEC) < 0) { // reset timer
+				perror("alarm");
+				exit(1);
+			}
+		
+	//		break;
+		}
+		if (WIFSTOPPED(status)) {
+			/* A child has stopped due to SIGSTOP/SIGTSTP, etc... */
+			printf("Parent: Child has been stopped. Moving right along...\n");
+			p = dequeue(q);
+			if (p == NULL ) {
+				printf("No more process\n");
+				exit(1);
+				
+			}
+			enqueue(p,q);
+			p = get_top(q);
+			if (p == NULL) break;
+			printf("starting process %s\n",p->name);
+			kill(p->pid,SIGCONT);	
+	//		break;
+		}
+        }
+	//assert(0 && "Please fill me!");
+}
 
 /* Install two signal handlers.
  * One for SIGCHLD, one for SIGALRM.
@@ -150,6 +255,7 @@ install_signal_handlers(void)
 	}
 }
 
+
 static void
 do_shell(char *executable, int wfd, int rfd)
 {
@@ -181,7 +287,7 @@ sched_create_shell(char *executable, int *request_fd, int *return_fd)
 {
 	pid_t p;
 	int pfds_rq[2], pfds_ret[2];
-
+	struct process *proc;
 	if (pipe(pfds_rq) < 0 || pipe(pfds_ret) < 0) {
 		perror("pipe");
 		exit(1);
@@ -205,6 +311,13 @@ sched_create_shell(char *executable, int *request_fd, int *return_fd)
 	close(pfds_ret[0]);
 	*request_fd = pfds_rq[0];
 	*return_fd = pfds_ret[1];
+
+	//Store in node list
+	proc = malloc(sizeof(struct process));
+	proc->pid = p;
+	proc->myid++;//id for the shell?
+	proc->name = executable;
+	enqueue(proc,q);
 }
 
 static void
@@ -249,19 +362,53 @@ int main(int argc, char *argv[])
 	 * For each of argv[1] to argv[argc - 1],
 	 * create a new child process, add it to the process list.
 	 */
+	int i;
+	pid_t p;
+	nproc = argc-1; /* number of proccesses goes here */
 
-	nproc = 0; /* number of proccesses goes here */
+	if (nproc == 0) {
+		fprintf(stderr, "Scheduler: No tasks. Exiting...\n");
+		exit(1);
+	}
+	
+	q = init_queue();
+	struct process * proc;
+	for (i=0; i<nproc;i++) {
+		p = fork();
+		if (p < 0) {
+			perror("fork");
+			exit(1);
+		}
 
+		if (p == 0) {
+			char *newargv[] = { argv[i], NULL, NULL, NULL };
+        		char *newenviron[] = { NULL };
+			raise(SIGSTOP);
+			execve(argv[i],newargv,newenviron);
+			exit(1);
+		}
+		proc = malloc(sizeof(struct process));
+		proc->pid = p;
+		proc->myid++;
+		proc->name = argv[i];
+		enqueue(proc,q);
+		
+	}
+	
 	/* Wait for all children to raise SIGSTOP before exec()ing. */
 	wait_for_ready_children(nproc);
 
 	/* Install SIGALRM and SIGCHLD handlers. */
 	install_signal_handlers();
 
-	if (nproc == 0) {
-		fprintf(stderr, "Scheduler: No tasks. Exiting...\n");
-		exit(1);
-	}
+    /* Arrange for an alarm after 1 sec */
+    if (alarm(SCHED_TQ_SEC) < 0) {
+            perror("alarm");
+            exit(1);
+    }
+
+	proc = get_top(q);
+	kill(proc->pid,SIGCONT);
 
 	shell_request_loop(request_fd, return_fd);
 

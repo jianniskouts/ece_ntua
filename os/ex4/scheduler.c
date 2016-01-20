@@ -8,31 +8,97 @@
 
 #include <sys/wait.h>
 #include <sys/types.h>
-
 #include "proc-common.h"
 #include "request.h"
+#include "queue.h"
 
 /* Compile-time parameters. */
 #define SCHED_TQ_SEC 2                /* time quantum */
 #define TASK_NAME_SZ 60               /* maximum size for a task's name */
 
+/*the process queue*/
+queue * q;
 
+struct process {
+
+	pid_t pid;
+	char * name;
+
+};
 /*
  * SIGALRM handler
  */
 static void
-sigalrm_handler(int signum)
-{
-	assert(0 && "Please fill me!");
+sigalrm_handler(int signum){
+	struct process * proc;
+	proc = get_top(q);
+	kill(proc->pid,SIGSTOP);
+	if (alarm(SCHED_TQ_SEC) < 0) {
+                perror("alarm");
+                exit(1);
+     }
 }
 
 /* 
  * SIGCHLD handler
  */
 static void
-sigchld_handler(int signum)
-{
-	assert(0 && "Please fill me!");
+sigchld_handler(int signum){
+	if (signum != SIGCHLD) {
+        fprintf(stderr, "Internal error: Called for signum %d, not SIGCHLD\n",
+                signum);
+        exit(1);
+    }
+	
+	struct process *  p;
+	pid_t pid;
+	int status;
+	for (;;) {
+        pid = waitpid(-1, &status, WUNTRACED | WNOHANG);
+        if (pid < 0) {
+                perror("waitpid");
+                exit(1);
+        }
+        if (pid == 0)
+                break;
+
+        explain_wait_status(pid, status);
+
+        if (WIFEXITED(status) || WIFSIGNALED(status)) {
+            /* A child has died */
+            printf("Parent: Received SIGCHLD, child  %s is dead.\n", name_by_pid(pid,q));
+			p = get_top(q);
+			dequeue(q);
+			p = get_top(q);
+			if (p == NULL ) {
+				printf("No more process\n");
+				exit(1);
+
+			}
+			printf("starting process %s\n",p->name);
+			kill(p->pid,SIGCONT);
+
+			if (alarm(SCHED_TQ_SEC) < 0) { // reset timer
+				perror("alarm");
+				exit(1);
+			}
+		}
+		if (WIFSTOPPED(status)) {
+			/* A child has stopped due to SIGSTOP/SIGTSTP, etc... */
+			printf("Parent: Child has been stopped. Moving right along...\n");
+			p = dequeue(q);
+			if (p == NULL ) {
+				printf("No more process\n");
+				exit(1);
+				
+			}
+			enqueue(p,q);
+			p = get_top(q);
+			if (p == NULL) break;
+			printf("starting process %s\n",p->name);
+			kill(p->pid,SIGCONT);	
+		}
+    }
 }
 
 /* Install two signal handlers.
@@ -73,6 +139,9 @@ install_signal_handlers(void)
 	}
 }
 
+
+
+
 int main(int argc, char *argv[])
 {
 	int nproc;
@@ -80,8 +149,35 @@ int main(int argc, char *argv[])
 	 * For each of argv[1] to argv[argc - 1],
 	 * create a new child process, add it to the process list.
 	 */
+	int i;
+	pid_t p;
+	nproc = argc-1; /* number of proccesses goes here */
+	if (nproc == 0) {
+		fprintf(stderr, "Scheduler: No tasks. Exiting...\n");
+		exit(1);
+	}
+	q = init_queue();
+	struct process * proc;
+	for (i=0; i<nproc; i++) {
+		p = fork();
+		if (p < 0) {
+			perror("fork");
+			exit(1);
+		}
 
-	nproc = 0; /* number of proccesses goes here */
+		if (p == 0) {
+			char *newargv[] = { argv[i], NULL, NULL, NULL };
+        		char *newenviron[] = { NULL };
+			raise(SIGSTOP);
+			execve(argv[i+1],newargv,newenviron);
+			exit(1);
+		}
+		proc = malloc(sizeof(struct process));
+		proc->pid = p;
+		proc->name = argv[i+1];
+		enqueue(proc,q);
+		
+	}	
 
 	/* Wait for all children to raise SIGSTOP before exec()ing. */
 	wait_for_ready_children(nproc);
@@ -89,10 +185,16 @@ int main(int argc, char *argv[])
 	/* Install SIGALRM and SIGCHLD handlers. */
 	install_signal_handlers();
 
-	if (nproc == 0) {
-		fprintf(stderr, "Scheduler: No tasks. Exiting...\n");
-		exit(1);
-	}
+    /* Arrange for an alarm after 1 sec */
+    if (alarm(SCHED_TQ_SEC) < 0) {
+            perror("alarm");
+            exit(1);
+    }
+
+
+	/*start the process*/
+	proc = get_top(q);
+	kill(proc->pid,SIGCONT);
 
 
 	/* loop forever  until we exit from inside a signal handler. */
