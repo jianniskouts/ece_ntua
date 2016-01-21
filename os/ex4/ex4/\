@@ -11,7 +11,7 @@
 
 #include "proc-common.h"
 #include "request.h"
-#include "queue.h"
+#include "qeue.h"
 
 /* Compile-time parameters. */
 #define SCHED_TQ_SEC 2                /* time quantum */
@@ -19,24 +19,25 @@
 #define SHELL_EXECUTABLE_NAME "shell" /* executable for shell */
 
 /*the process queue*/
-queue * q;
+queue *q;
 
 /*The process struct*/
-/*struct process {
+struct process {
+
 	pid_t pid;
 	int myid;
 	char *name;
-};*/
-int id = 0;
+
+};
+
 /* Print a list of all tasks currently being scheduled.  */
 static void
 sched_print_tasks(void){
-	node * temp ;
-	temp = q->head;
+	queue *temp;
+	temp = q;
 	while(temp != NULL){
-		printf("Tasks:\nid: %d | pid: %d,| name: %s\n",temp->p->myid,temp->p->pid,temp->p->name);
-		temp = temp->pre;//TODO check where pre looks in the end
-
+		printf("Tasks:\nid: %d | pid: %d,| name: %s\n",temp->head->p->myid,temp->head->p->pid,temp->head->p->name);
+		temp->head = temp->head->pre;
 	}
 }
 
@@ -45,14 +46,14 @@ sched_print_tasks(void){
  */
 static int
 sched_kill_task_by_id(int id){
-	node *temp;
-	temp = q->head;
+	queue *temp;
+	temp = q;
 	while(temp !=NULL){
-		if (temp->p->myid == id){
-			kill(temp->p->pid,SIGKILL); //why not SIGTERM??
+		if (temp->head->p->myid == id){
+			kill(temp->head->p->pid,SIGKILL); //why not SIGTERM??
 			break;
 		}
-		temp = temp->pre;
+		temp->head = temp->head->pre;
 	}
 	return -ENOSYS;
 }
@@ -77,8 +78,7 @@ sched_create_task(char *executable){
 		}
 		proc = malloc(sizeof(struct process));
 		proc->pid = p;
-		id++;
-		proc->myid = id;
+		proc->myid++;
 		strcpy(proc-> name,executable);
 		enqueue(proc,q);
 }
@@ -165,38 +165,42 @@ sigchld_handler(int signum){
 	pid_t pid;
 	int status;
 	for (;;) {
-            pid = waitpid(-1, &status, WUNTRACED | WNOHANG);
-            if (pid < 0) {
-                    perror("waitpid");
-                    exit(1);
-            }
-            if (pid == 0)
-                    break;
+                pid = waitpid(-1, &status, WUNTRACED | WNOHANG);
+                if (pid < 0) {
+                        perror("waitpid");
+                        exit(1);
+                }
+                if (pid == 0)
+                        break;
 
-            explain_wait_status(pid, status);
+                explain_wait_status(pid, status);
 
-            if (WIFEXITED(status) || WIFSIGNALED(status)) {
-                    /* A child has died */
-                   printf("Parent: Received SIGCHLD, child  %s is dead.\n", name_by_pid(pid,q));
-				p = get_top(q);
-				dequeue(q);
-				p = get_top(q);
-				if (p == NULL ) {
-					printf("No more process\n");
-					exit(1);
-					}
-				printf("starting process %s\n",p->name);
-				kill(p->pid,SIGCONT);
-					if (alarm(SCHED_TQ_SEC) < 0) { // reset timer
-					perror("alarm");
-					exit(1);
+                if (WIFEXITED(status) || WIFSIGNALED(status)) {
+                        /* A child has died */
+                        printf("Parent: Received SIGCHLD, child  %s is dead.\n", name_by_pid(pid,q));
+			p = get_top(q);
+		
+			dequeue(q);
+			p = get_top(q);
+
+			if (p == NULL ) {
+				printf("No more process\n");
+				exit(1);
 				}
+
+			printf("starting process %s\n",p->name);
+			kill(p->pid,SIGCONT);
+				if (alarm(SCHED_TQ_SEC) < 0) { // reset timer
+				perror("alarm");
+				exit(1);
 			}
+		
+	//		break;
+		}
 		if (WIFSTOPPED(status)) {
 			/* A child has stopped due to SIGSTOP/SIGTSTP, etc... */
 			printf("Parent: Child has been stopped. Moving right along...\n");
 			p = dequeue(q);
-
 			if (p == NULL ) {
 				printf("No more process\n");
 				exit(1);
@@ -207,8 +211,10 @@ sigchld_handler(int signum){
 			if (p == NULL) break;
 			printf("starting process %s\n",p->name);
 			kill(p->pid,SIGCONT);	
+	//		break;
 		}
         }
+	//assert(0 && "Please fill me!");
 }
 
 /* Install two signal handlers.
@@ -286,6 +292,7 @@ sched_create_shell(char *executable, int *request_fd, int *return_fd)
 		perror("pipe");
 		exit(1);
 	}
+
 	p = fork();
 	if (p < 0) {
 		perror("scheduler: fork");
@@ -308,8 +315,7 @@ sched_create_shell(char *executable, int *request_fd, int *return_fd)
 	//Store in node list
 	proc = malloc(sizeof(struct process));
 	proc->pid = p;
-	id++;
-	proc->myid = id;//id for the shell?
+	proc->myid++;//id for the shell?
 	proc->name = executable;
 	enqueue(proc,q);
 }
@@ -324,42 +330,40 @@ shell_request_loop(int request_fd, int return_fd)
 	 * Keep receiving requests from the shell.
 	 */
 	for (;;) {
-		
 		if (read(request_fd, &rq, sizeof(rq)) != sizeof(rq)) {
 			perror("scheduler: read from shell");
 			fprintf(stderr, "Scheduler: giving up on shell request processing.\n");
 			break;
 		}
-		
+
 		signals_disable();
 		ret = process_request(&rq);
 		signals_enable();
-		printf("gyrisa\n");
+
 		if (write(return_fd, &ret, sizeof(ret)) != sizeof(ret)) {
 			perror("scheduler: write to shell");
 			fprintf(stderr, "Scheduler: giving up on shell request processing.\n");
 			break;
 		}
-		
 	}
 }
 
-int main(int argc, char *argv[]){
+int main(int argc, char *argv[])
+{
 	int nproc;
 	/* Two file descriptors for communication with the shell */
 	static int request_fd, return_fd;
-	int i;
-	pid_t p;
 
-	q = init_queue();
 	/* Create the shell. */
 	sched_create_shell(SHELL_EXECUTABLE_NAME, &request_fd, &return_fd);
 	/* TODO: add the shell to the scheduler's tasks */
+
 	/*
 	 * For each of argv[1] to argv[argc - 1],
 	 * create a new child process, add it to the process list.
 	 */
-	
+	int i;
+	pid_t p;
 	nproc = argc-1; /* number of proccesses goes here */
 
 	if (nproc == 0) {
@@ -367,8 +371,9 @@ int main(int argc, char *argv[]){
 		exit(1);
 	}
 	
+	q = init_queue();
 	struct process * proc;
-	for (i = 0; i<nproc;i++) {
+	for (i=0; i<nproc;i++) {
 		p = fork();
 		if (p < 0) {
 			perror("fork");
@@ -376,17 +381,16 @@ int main(int argc, char *argv[]){
 		}
 
 		if (p == 0) {
-			char *newargv[] = { argv[i+1], NULL, NULL, NULL };
+			char *newargv[] = { argv[i], NULL, NULL, NULL };
         		char *newenviron[] = { NULL };
 			raise(SIGSTOP);
-			execve(argv[i+1],newargv,newenviron);
+			execve(argv[i],newargv,newenviron);
 			exit(1);
 		}
 		proc = malloc(sizeof(struct process));
 		proc->pid = p;
-		id++;
-		proc->myid = id;
-		proc->name = argv[i+1];
+		proc->myid++;
+		proc->name = argv[i];
 		enqueue(proc,q);
 		
 	}
@@ -412,7 +416,8 @@ int main(int argc, char *argv[]){
 	 * until we exit from inside a signal handler.
 	 */
 	while (pause())
-		printf("to be continued\n");;
+		;
+
 	/* Unreachable */
 	fprintf(stderr, "Internal error: Reached unreachable point\n");
 	return 1;

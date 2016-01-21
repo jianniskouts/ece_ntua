@@ -21,12 +21,6 @@
 /*the process queue*/
 queue * q;
 
-/*The process struct*/
-/*struct process {
-	pid_t pid;
-	int myid;
-	char *name;
-};*/
 int id = 0;
 /* Print a list of all tasks currently being scheduled.  */
 static void
@@ -35,7 +29,7 @@ sched_print_tasks(void){
 	temp = q->head;
 	while(temp != NULL){
 		printf("Tasks:\nid: %d | pid: %d,| name: %s\n",temp->p->myid,temp->p->pid,temp->p->name);
-		temp = temp->pre;//TODO check where pre looks in the end
+		temp = temp->pre;
 
 	}
 }
@@ -49,7 +43,7 @@ sched_kill_task_by_id(int id){
 	temp = q->head;
 	while(temp !=NULL){
 		if (temp->p->myid == id){
-			kill(temp->p->pid,SIGKILL); //why not SIGTERM??
+			kill(temp->p->pid,SIGTERM); //why not SIGTERM??
 			break;
 		}
 		temp = temp->pre;
@@ -70,7 +64,7 @@ sched_create_task(char *executable){
 
 		if (p == 0) {
 			char *newargv[] = { executable, NULL, NULL, NULL };
-        	char *newenviron[] = { NULL };
+        		char *newenviron[] = { NULL };
 			raise(SIGSTOP);
 			execve(executable,newargv,newenviron);
 			exit(1);
@@ -79,7 +73,7 @@ sched_create_task(char *executable){
 		proc->pid = p;
 		id++;
 		proc->myid = id;
-		strcpy(proc-> name,executable);
+		strcpy(proc->name,executable);
 		enqueue(proc,q);
 }
 
@@ -181,10 +175,12 @@ sigchld_handler(int signum){
 				p = get_top(q);
 				dequeue(q);
 				p = get_top(q);
+
 				if (p == NULL ) {
 					printf("No more process\n");
 					exit(1);
 					}
+
 				printf("starting process %s\n",p->name);
 				kill(p->pid,SIGCONT);
 					if (alarm(SCHED_TQ_SEC) < 0) { // reset timer
@@ -334,7 +330,6 @@ shell_request_loop(int request_fd, int return_fd)
 		signals_disable();
 		ret = process_request(&rq);
 		signals_enable();
-		printf("gyrisa\n");
 		if (write(return_fd, &ret, sizeof(ret)) != sizeof(ret)) {
 			perror("scheduler: write to shell");
 			fprintf(stderr, "Scheduler: giving up on shell request processing.\n");
@@ -354,7 +349,7 @@ int main(int argc, char *argv[]){
 	q = init_queue();
 	/* Create the shell. */
 	sched_create_shell(SHELL_EXECUTABLE_NAME, &request_fd, &return_fd);
-	/* TODO: add the shell to the scheduler's tasks */
+	/* add the shell to the scheduler's tasks */
 	/*
 	 * For each of argv[1] to argv[argc - 1],
 	 * create a new child process, add it to the process list.
@@ -397,11 +392,11 @@ int main(int argc, char *argv[]){
 	/* Install SIGALRM and SIGCHLD handlers. */
 	install_signal_handlers();
 
-    /* Arrange for an alarm after 1 sec */
-    if (alarm(SCHED_TQ_SEC) < 0) {
+    	/* Arrange for an alarm after 1 sec */
+    	if (alarm(SCHED_TQ_SEC) < 0) {
             perror("alarm");
             exit(1);
-    }
+    	}	
 
 	proc = get_top(q);
 	kill(proc->pid,SIGCONT);

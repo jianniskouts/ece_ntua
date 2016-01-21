@@ -3,13 +3,12 @@
 #include <sys/types.h>
 #include "queue.h"
 
-/*struct process {
 
+struct process {
 	pid_t pid;
-	int myid;
 	char * name;
-
 };
+
 struct node {
 	struct process * p;
 	struct node * pre;
@@ -19,7 +18,7 @@ struct queue {
 	struct node * head;
 	struct node * tail;
 	int size;
-};*/
+};
 
 struct queue * init_queue() {
 	struct queue * q  = malloc(sizeof(struct queue));
@@ -27,17 +26,16 @@ struct queue * init_queue() {
 	q->tail = NULL;
 	q->size = 0;
 	return q;	
-}
+};
 
-	
-		
 struct process * get_top(struct queue * q) {
 	if (q->head == NULL) 
 		return NULL;
 	else  
 		return q->head->p;
 
-}
+};
+
 struct process * dequeue(struct queue * q) {
 	struct node * temp ;
 	temp = q->head;
@@ -50,16 +48,16 @@ struct process * dequeue(struct queue * q) {
 		q->head = temp->pre;	
 	}
 	
-	printf(" denqueue,my queue size is = %d\n",q->size );
+		
 	return temp->p;
-}
+};
 
 void enqueue(struct process * p, struct queue * q) {
 	
-	struct node *new = malloc(sizeof(struct node));
+	struct node * new = malloc(sizeof(struct node));
 	new->p = p;
 	new->pre = NULL;
-	if ((q->size) == 0) {
+	if (q->size == 0) {
 		q->head = new;
 		q->tail = new;
 	} else {
@@ -67,8 +65,7 @@ void enqueue(struct process * p, struct queue * q) {
 		q->tail= new;
 	}
 	q->size++;
-	printf(" enqueue,my queue size is = %d\n",q->size );
-}	
+};
 
 char * name_by_pid(pid_t p, queue * q) {
 	
@@ -77,6 +74,4 @@ char * name_by_pid(pid_t p, queue * q) {
 		t = t->pre;
 
 	return t->p->name;
-
-
-}
+};

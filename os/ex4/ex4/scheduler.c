@@ -19,12 +19,12 @@
 /*the process queue*/
 queue * q;
 
-/*struct process {
+struct process {
 
 	pid_t pid;
 	char * name;
 
-};*/
+};
 /*
  * SIGALRM handler
  */
